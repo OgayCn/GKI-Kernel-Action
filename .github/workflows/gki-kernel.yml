@@ -382,7 +382,7 @@ jobs:
       - name: 编译内核文件
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 35
+          timeout_minutes: 30
           max_attempts: 3
           retry_on: timeout
           command: |
