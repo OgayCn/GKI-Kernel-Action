@@ -355,7 +355,7 @@ jobs:
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
-          SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./Makefile)
+          SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./common/Makefile)
           if [ ! -z ${{ inputs.version }} ]; then
             echo "应生成目标内核版本号:${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
             # sed -i '$s|echo "\$res"|echo "${{ inputs.version }}"|' ./common/scripts/setlocalversion
