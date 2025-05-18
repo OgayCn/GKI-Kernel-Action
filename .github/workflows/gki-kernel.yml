@@ -130,8 +130,8 @@ jobs:
           # Debug print the branches
           echo "Using branch for SUSFS: $SUSFS_BRANCH"
           # Clone repositories using the branch names
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" --depth 1
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git
           cd SukiSU_patch
           cp -r AnyKernel3 ../
           cd ..
