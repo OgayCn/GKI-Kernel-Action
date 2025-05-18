@@ -57,6 +57,14 @@ jobs:
           remove-haskell: "true"
           remove-codeql: "true"
 
+      - name: 拉取仓库文件
+        uses: actions/checkout@v4
+
+      - name: Check source directory
+        run: |
+          echo "检查 kernel-patch/build-tools-config 是否存在："
+          ls -la $GITHUB_WORKSPACE/kernel-patch/build-tools-config/
+
       - name: 安装 ccache
         run: sudo apt update && sudo apt upgrade -y && sudo apt install -y ccache python3 git curl
 
