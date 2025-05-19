@@ -140,10 +140,10 @@ jobs:
         run: |
           curl -o clang-r563880.tar.gz https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r563880.tar.gz
           
-          echo "解压 clang-r563880.tar.gz 中..."
+          echo "Unzip clang-r563880.tar.gz..."
           sudo mkdir -p $GITHUB_WORKSPACE/clang-r563880
           sudo tar -xzf clang-r563880.tar.gz -C $GITHUB_WORKSPACE/clang-r563880
-          echo "clang-r563880.tar.gz 解压完成..."
+          echo "Extract clang-r563880.tar.gz  completed..."
           sudo rm -rf ./clang-r563880.tar.gz
           
       - name: 拉取内核源代码
@@ -393,17 +393,17 @@ jobs:
             tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast --lto=thin //common:kernel_aarch64_dist || exit 1
             ccache --show-stats
 
-      - name: 修补 Image 文件 (kpm)
-        if: ${{ inputs.android_version == 'android14' || inputs.android_version == 'android15' }}
-        run: |
-          echo "Patching Image file..."
-          cd "$CONFIG/bazel-bin/common/kernel_aarch64/"
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm/patch_linux" -o patch
-          chmod 777 patch
-          ./patch
-          rm -rf Image
-          mv oImage Image
-          cd ../../..
+      # - name: 修补 Image 文件 (kpm)
+      #   if: ${{ inputs.android_version == 'android14' || inputs.android_version == 'android15' }}
+      #   run: |
+      #     echo "Patching Image file..."
+      #     cd "$CONFIG/bazel-bin/common/kernel_aarch64/"
+      #     curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm/patch_linux" -o patch
+      #     chmod 777 patch
+      #     ./patch
+      #     rm -rf Image
+      #     mv oImage Image
+      #     cd ../../..
           
       - name: 创建 Bootimgs 文件夹并复制镜像
         if: ${{ inputs.android_version == 'android14' || inputs.android_version == 'android15' }}
