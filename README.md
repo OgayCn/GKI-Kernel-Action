@@ -1,4 +1,4 @@
-### 自动构建6.1-LTS分支内核 [私有仓库]
+### 自动构建6.1-LTS分支内核
 
 > 本仓库仅支持 6.1.X 的GKI设备，[在此](https://source.android.com/docs/core/architecture/kernel/gki-release-builds?hl=zh-cn)查看您的设备是否支持
 
