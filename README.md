@@ -3,7 +3,7 @@
 > 本仓库仅支持 6.1.X 的GKI设备，[在此](https://source.android.com/docs/core/architecture/kernel/gki-release-builds?hl=zh-cn)查看您的设备是否支持
 
 ### 下载刷入
-- 可以 [点击此处](https://github.com/OgaySoft/6.1-LTS-GKI-Kernel-Action/releases) 下载本仓库编译的资源
+- 可以 [点击此处](https://github.com/OgayCn/GKI-Kernel-Action/releases) 下载本仓库编译的资源
 
 - 下载Anykernel3.zip文件，然后使用 [SukiSU Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases) 刷入
 
