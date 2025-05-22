@@ -105,7 +105,7 @@ jobs:
           echo "AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool" >> $GITHUB_ENV
           echo "MKBOOTIMG=$GITHUB_WORKSPACE/mkbootimg/mkbootimg.py" >> $GITHUB_ENV
           echo "UNPACK_BOOTIMG=$GITHUB_WORKSPACE/mkbootimg/unpack_bootimg.py" >> $GITHUB_ENV
-          echo "BOOTHASH=${GITHUB_SHA:0:12}" >> $GITHUB_ENV
+          echo "BOOTHASH=$(date +%s%N | sha1sum | cut -c1-12)" >> $GITHUB_ENV
           uname -n
 
       - name: 密钥设置
