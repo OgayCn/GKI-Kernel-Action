@@ -1,0 +1,168 @@
+name: 构建并发布内核
+
+permissions:
+  contents: write
+  actions: write
+  
+on:
+  workflow_dispatch:
+    inputs:
+      make_release:
+        description: '创建一个Release发布构建好的内核'
+        required: true
+        type: boolean
+        default: true
+      kernelsu_variant:
+        description: "选择 KernelSU"
+        required: true
+        type: choice
+        options:
+          - SukiSU
+        default: SukiSU
+      kernelsu_branch:
+        description: "选择 ksu 分支"
+        required: true
+        type: choice
+        options:
+          - Dev
+        default: Dev
+      version:
+        description: '自定义版本名(如位于6.1.140-android14-11-g<自动生成HASH>-<自定义版本名>/留空则使用默认版本号)'
+        required: false
+        type: string
+jobs:
+
+  build-kernel-a14-6-1:
+    uses: ./.github/workflows/kernel-a14-6.1.yml
+    secrets: inherit
+    with:
+      make_release: ${{ inputs.make_release }}
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
+      kernelsu_branch: ${{ inputs.kernelsu_branch }}
+      version: ${{ inputs.version }}
+
+  trigger-release:
+    runs-on: ubuntu-latest
+    needs:
+      - build-kernel-a14-6-1
+    env:
+      REPO_NAME: 6.1-LTS-GKI-Kernel-Action
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_NAME: "GKI-6.1-LTS"
+      RELEASE_BODY:
+    steps:
+      - name: 检查代码
+        uses: actions/checkout@v4
+
+      - name: 获取提交哈希值并生成提交URL
+        run: |
+          GITLAB_OWNER="simonpunk"
+          GITLAB_REPO="susfs4ksu"
+          
+          declare -A BRANCH_MAP=(
+            ["gki_android14_6_1"]="gki-android14-6.1"
+          )
+          
+          for var_name in "${!BRANCH_MAP[@]}"; do
+            branch_name="${BRANCH_MAP[$var_name]}"
+            COMMIT_HASH=$(git ls-remote https://gitlab.com/$GITLAB_OWNER/$GITLAB_REPO.git refs/heads/$branch_name | awk '{ print $1 }')
+            
+            if [[ -n "$COMMIT_HASH" ]]; then
+              COMMIT_URL="https://gitlab.com/$GITLAB_OWNER/$GITLAB_REPO/-/commit/$COMMIT_HASH"
+              echo "$branch_name Commit: $COMMIT_HASH"
+              echo "$branch_name Commit URL: $COMMIT_URL"
+              
+              echo "COMMIT_HASH_${var_name}=$COMMIT_HASH" >> "$GITHUB_ENV"
+              echo "COMMIT_URL_${var_name}=$COMMIT_URL" >> "$GITHUB_ENV"
+            fi
+          done
+
+      - name: 获取提交哈希值或标签并生成 URL 于 KernelSU-${{ inputs.kernelsu_variant }}
+        run: |
+          BRANCH="${{ inputs.kernelsu_branch }}"
+      
+          get_ref() {
+            local name="$1" repo="$2" path="$3" mode="$4"
+            if [[ "$mode" == "tag" ]]; then
+              ref=$(git ls-remote --tags --sort=-v:refname "$repo" | grep -o 'refs/tags/.*' | cut -d/ -f3 | head -n1)
+              url="https://github.com/$path/releases/tag/$ref"
+            else
+              ref=$(git ls-remote "$repo" HEAD | awk '{print $1}')
+              url="https://github.com/$path/commit/$ref"
+            fi
+            echo "SukiSU_REF=$ref" >> $GITHUB_ENV
+            echo "SukiSU_URL=$url" >> $GITHUB_ENV
+          }
+      
+          [[ "$BRANCH" == "Stable" ]] && MODE="tag" || MODE="commit"
+      
+          get_ref "SukiSU Ultra" "https://github.com/ShirkNeko/SukiSU-Ultra.git" "ShirkNeko/SukiSU-Ultra" "$MODE"
+
+      - name: 生成和创建新标签
+        run: |
+            LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name')
+            if [ -z "$LATEST_TAG" ]; then
+              LATEST_TAG="6.1-LTS-v0"
+            fi
+            
+            NEW_TAG=$(echo "$LATEST_TAG" | awk -F'-v' '{suffix=$2; if (!suffix) suffix=0; suffix++; printf "%s-v%d", $1, suffix}')
+    
+            echo "新标签: $NEW_TAG"
+            echo "NEW_TAG=${NEW_TAG}" >> $GITHUB_ENV
+
+            git tag $NEW_TAG
+            git push origin $NEW_TAG
+
+      - name: 下载附件
+        uses: actions/download-artifact@v4
+        with:
+          path: ./downloaded-artifacts
+
+      - name: 设置 Release 内容
+        run: |
+          cat << 'EOF' > release_body.md
+          
+          ### 功能:
+          -> SUSFS ඞ v1.5.7
+          -> 手动Syscall Hooks,实现更好的隐藏效果
+          -> Magic Mount 支持
+          -> 简单隐藏 LineageOS 检测
+          -> 徒劳隐藏 jit-zygote-cache 检测
+          -> Wireguard 支持
+          -> BBR 支持
+          -> LZ4KD 支持
+          -> **6.1-LTS分支 小米系 WIFI 修复**
+          -> **Clang21 编译**
+      
+          ### 管理器:
+          -> SukiSU Ultra: https://github.com/ShirkNeko/SukiSU-Ultra
+      
+          ### 发布提交Hash:
+          -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
+          -> Susfs4ksu:
+             gki-android14-6.1: [${{ env.COMMIT_HASH_gki_android14_6_1 }}](${{ env.COMMIT_URL_gki_android14_6_1 }})
+          EOF
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.NEW_TAG }}
+          prerelease: ${{ inputs.release_type == 'Pre-Release' }}
+          files: ""
+          name: ${{ env.RELEASE_NAME }}
+          body_path: release_body.md
+
+      - name: 上传编译产出文件到 Release
+        run: |
+          for file in ./downloaded-artifacts/*-kernel-*/*; do
+            if [ -d "$file" ]; then
+              continue
+            fi
+            echo "Uploading $file..."
+            gh release upload ${{ env.NEW_TAG }} "$file"
+          done
+
+      - name: 显示上传的文件
+        run: |
+          echo "GitHub release created with the following files:"
+          ls ./downloaded-artifacts/**/*
