@@ -43,10 +43,10 @@ jobs:
       - name: 初始化并配置构建空间
         uses: AdityaGarg8/remove-unwanted-software@v5
         with:
-          remove-dotnet: 'true'          # Frees ~2 GB
-          remove-android: 'true'         # Frees ~9 GB
-          remove-haskell: 'true'         # Frees ~5.2 GB
-          remove-codeql: 'true'          # Frees ~5.4 GB
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
 
       - name: 拉取仓库文件
         uses: actions/checkout@v4
@@ -179,13 +179,10 @@ jobs:
           
           echo "编译工具链配置文件修改完成..."
 
-      - name: 确定 SukiSU 分支
+ 
+      - name: 确定分支并添加 SukiSU
         run: |
-          echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
-
-      
-      - name: 添加 SukiSU
-        run: |
+	  echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
 
@@ -215,7 +212,6 @@ jobs:
           cd ./KernelSU
           echo "Applying SukiSU specific SUSFS patch..."
 
-
           # Change to common directory and apply common SUSFS patch
           cd ../common
           patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
@@ -231,8 +227,7 @@ jobs:
           patch -p1 -F 3 < syscall_hooks.patch
 
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
-          patch -p1 -F 3 < 69_hide_stuff.patch
-        
+          patch -p1 -F 3 < 69_hide_stuff.patch   
           
       - name: 应用 LZ4KD 补丁
         run: |
