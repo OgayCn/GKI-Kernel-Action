@@ -47,11 +47,6 @@ jobs:
           remove-android: 'true'         # Frees ~9 GB
           remove-haskell: 'true'         # Frees ~5.2 GB
           remove-codeql: 'true'          # Frees ~5.4 GB
-          remove-docker-images: 'true'   # Frees ~3.2 GB
-          remove-large-packages: 'true'  # Frees ~3.1 GB
-          remove-swapfile: 'true'        # Frees ~4 GB
-          remove-cached-tools: 'false'   # Avoid unless confirmed safe
-          verbose: 'false'                # Enable detailed logging
 
       - name: 拉取仓库文件
         uses: actions/checkout@v4
@@ -184,13 +179,18 @@ jobs:
           
           echo "编译工具链配置文件修改完成..."
 
+      - name: 确定 SukiSU 分支
+        run: |
+          echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
+
+      
       - name: 添加 SukiSU
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
 
           echo "Adding KernelSU SukiSU..."
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev 
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash $BRANCH
 
       - name: 应用 LTS 分支补丁
         run: |
@@ -369,6 +369,18 @@ jobs:
             echo "Building the kernel..."
             tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast --lto=thin //common:kernel_aarch64_dist || exit 1
             ccache --show-stats
+
+      # - name: 修补 Image 文件 (KPM)
+      #   if: ${{ inputs.android_version == 'android14' || inputs.android_version == 'android15' }}
+      #   run: |
+      #     echo "Patching Image file..."
+      #     cd "$CONFIG/bazel-bin/common/kernel_aarch64/"
+      #     curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm/patch_linux" -o patch
+      #     chmod 777 patch
+      #     ./patch
+      #     rm -rf Image
+      #     mv oImage Image
+      #     cd ../../..
           
       - name: 创建 Bootimgs 文件夹并复制镜像
         run: |
