@@ -182,7 +182,7 @@ jobs:
  
       - name: 确定分支并添加 SukiSU
         run: |
-	  echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
+          echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
 
