@@ -48,8 +48,12 @@ jobs:
           swap-size-mb: 8192
           remove-dotnet: "true"
           remove-android: "true"
-          remove-haskell: "true"
-          remove-codeql: "true"
+          remove-haskell: "true"        
+          remove-codeql: "true"         
+          remove-docker-images: "true"
+          remove-large-packages: "true"
+          remove-swapfile: "true"
+          verbose: "false"
 
       - name: 拉取仓库文件
         uses: actions/checkout@v4
@@ -129,17 +133,7 @@ jobs:
           cd SukiSU_patch
           cp -r AnyKernel3 ../
           cd ..
-          
-      - name: 下载 Clang 21 编译器
-        run: |
-          curl -o clang-r563880.tar.gz https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r563880.tar.gz
-          
-          echo "Unzip clang-r563880.tar.gz..."
-          sudo mkdir -p $GITHUB_WORKSPACE/clang-r563880
-          sudo tar -xzf clang-r563880.tar.gz -C $GITHUB_WORKSPACE/clang-r563880
-          echo "Extract clang-r563880.tar.gz  completed..."
-          sudo rm -rf ./clang-r563880.tar.gz
-          
+
       - name: 拉取内核源代码
         run: |
           echo "Creating folder for configuration: $CONFIG..."
@@ -164,8 +158,15 @@ jobs:
           $REPO --version
           $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
 
-      - name: 设置 Clang 编译器配置
+      - name: 下载并配置 Clang 21 编译器
         run: |
+          curl -o clang-r563880.tar.gz https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r563880.tar.gz
+          echo "Unzip clang-r563880.tar.gz..."
+          sudo mkdir -p $GITHUB_WORKSPACE/clang-r563880
+          sudo tar -xzf clang-r563880.tar.gz -C $GITHUB_WORKSPACE/clang-r563880
+          echo "Extract clang-r563880.tar.gz  completed..."
+          sudo rm -rf ./clang-r563880.tar.gz
+
           cd "$CONFIG"
 
           echo "删除内核源码中默认配置的 clang 并替换为 clang21 ..."
@@ -183,23 +184,16 @@ jobs:
           echo "编译工具链配置文件修改完成..."
 
  
-      - name: 确定分支并添加 SukiSU
+      - name: 确定 SukiSU 分支并添加
         run: |
-          echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
+          echo "SukiSU_BRANCH=-s susfs-dev" >> $GITHUB_ENV
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
 
           echo "Adding KernelSU SukiSU..."
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash $BRANCH
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash $SukiSU_BRANCH
 
-      - name: 应用 LTS 分支补丁
-        run: |
-          echo "Applying lts patches..."
-          cd "$CONFIG/common"
-          sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
-          echo "Applying lts patches complete..."
-
-      - name: 为 SukiSU 安装 SUSFS 补丁
+      - name: 安装 SUSFS
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
@@ -218,24 +212,22 @@ jobs:
           # Change to common directory and apply common SUSFS patch
           cd ../common
           patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
-
-      - name: 应用 HOOKS & 隐藏特征 补丁
+          
+      - name: 应用内核补丁
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/common"
+
+          sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
+          echo "Applying lts patches complete..."
 
           echo "Applying hooks for SukiSU..."
-
           cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
           patch -p1 -F 3 < syscall_hooks.patch
-
+  
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
-          patch -p1 -F 3 < 69_hide_stuff.patch   
-          
-      - name: 应用 LZ4KD 补丁
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/common"
+          patch -p1 -F 3 < 69_hide_stuff.patch
+
           cp -r ../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
           cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
           cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
@@ -247,7 +239,7 @@ jobs:
           # cp ../../SukiSU_patch/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch ./
           # patch -p1 -F 3 < lz4k_oplus.patch || true
 
-          echo '完成 lz4kd 补丁'
+          echo '完成内核补丁'
 
       - name: 写入 LZ4KD 配置
         run: |
@@ -277,7 +269,7 @@ jobs:
             echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
           fi
            
-      - name: 添加 SUSFS 配置设置
+      - name: 添加 SUSFS 配置
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
@@ -286,7 +278,7 @@ jobs:
 
           # Add KSU configuration settings
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KPM=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
 
@@ -368,29 +360,10 @@ jobs:
             tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast --lto=thin //common:kernel_aarch64_dist || exit 1
             ccache --show-stats
 
-      # - name: 修补 Image 文件 (KPM)
-      #   if: ${{ inputs.android_version == 'android14' || inputs.android_version == 'android15' }}
-      #   run: |
-      #     echo "Patching Image file..."
-      #     cd "$CONFIG/bazel-bin/common/kernel_aarch64/"
-      #     curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm/patch_linux" -o patch
-      #     chmod 777 patch
-      #     ./patch
-      #     rm -rf Image
-      #     mv oImage Image
-      #     cd ../../..
-          
-      - name: 创建 Bootimgs 文件夹并复制镜像
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          mkdir bootimgs
-          echo "Creating bootimgs folder and copying images..."
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./bootimgs
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
-
       - name: 制作 Ak3.zip 文件
         run: |
           echo "Creating zip files for all formats..."
+          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
           cd ./AnyKernel3
 
           # Create and upload zip for each format
@@ -399,19 +372,6 @@ jobs:
           mv ../Image ./Image
           zip -r "../$ZIP_NAME" ./*
           rm ./Image
-      
-      - name: 运行boot镜像 ${{ inputs.android_version }} 编译脚本
-        if: ${{ inputs.android_version == 'android13' || inputs.android_version == 'android14' || inputs.android_version == 'android15' }}
-        run: |
-          cd bootimgs
-
-          echo "Building Image.gz"
-          gzip -n -k -f -9 ./Image > ./Image.gz
-
-          echo "Building boot.img"
-          $MKBOOTIMG --header_version 4 --kernel Image --output boot.img
-          $AVBTOOL add_hash_footer --partition_name boot --partition_size $((64 * 1024 * 1024)) --image boot.img --algorithm SHA256_RSA2048 --key $BOOT_SIGN_KEY_PATH
-          cp ./boot.img ../$BOOTNAME-boot.img
 
       - name: 上传编译产出文件
         uses: actions/upload-artifact@v4
@@ -419,4 +379,3 @@ jobs:
           name: SukiSU-kernel-${{ env.CONFIG }}
           path: |
             *.zip
-            *.img
