@@ -5,12 +5,12 @@
 ### 下载刷入
 - 可以 [点击此处](https://github.com/OgayCn/GKI-Kernel-Action/releases) 下载本仓库编译的资源
 
-- 下载Ak3.zip文件，然后使用 [SukiSU Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases) 刷入
+- 下载Ak3.zip文件，然后使用 [SukiSU Ultra](https://github.com/ShirkNeko/SukiSU-Ultra) 刷入
 
 ### 支持
 | 功能 | 说明 |
 | --- | --- |
-| [SukiSU Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases) | SUKISU |
+| [SukiSU Ultra](https://github.com/ShirkNeko/SukiSU-Ultra) | SUKISU |
 | [SUSFS4](https://gitlab.com/simonpunk/susfs4ksu) | 在内核层面辅助KSU隐藏的功能补丁 |
 | [BBR](https://blog.thinkin.top/archives/ke-pu-bbrdao-di-shi-shi-me) | TCP拥塞控制算法，使网络更快？ |
 | [Wireguard](https://zh.wikipedia.org/wiki/WireGuard) | 参考左侧wiki链接 |

@@ -123,24 +123,17 @@ jobs:
           cat << 'EOF' > release_body.md
           
           ### 功能:
-          -> SUSFS ඞ v1.5.7
-          -> 手动Syscall Hooks,实现更好的隐藏效果
+          -> SUSFS v1.5.8
+          -> VFS Hook 隐藏支持
           -> Magic Mount 支持
-          -> 简单隐藏 LineageOS 检测
-          -> 徒劳隐藏 jit-zygote-cache 检测
           -> Wireguard 支持
-          -> BBR 支持
-          -> LZ4KD 支持
-          -> **6.1-LTS分支 小米系 WIFI 修复**
-          -> **Clang21 编译**
-      
-          ### 管理器:
-          -> SukiSU Ultra: https://github.com/ShirkNeko/SukiSU-Ultra
+          -> LZ4KD & BBR 支持
+          -> LTS 分支小米系修复
+          -> Clang21 LLVM 编译
       
           ### 发布提交Hash:
           -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
-          -> Susfs4ksu:
-             gki-android14-6.1: [${{ env.COMMIT_HASH_gki_android14_6_1 }}](${{ env.COMMIT_URL_gki_android14_6_1 }})
+          -> SUSFS(GKI-6.1):[${{ env.COMMIT_HASH_gki_android14_6_1 }}](${{ env.COMMIT_URL_gki_android14_6_1 }})
           EOF
 
       - name: 创建 GitHub Release
