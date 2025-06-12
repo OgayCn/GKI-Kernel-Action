@@ -185,19 +185,6 @@ jobs:
           sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/build-tools-config/* ./prebuilts/clang/host/linux-x86/kleaf
           
           echo "编译工具链配置文件修改完成..."
-
-      - name: 确定 SukiSU 分支
-        run: |
-          if [[ "${{ inputs.kernelsu_branch }}" == "Stable" ]]; then
-              echo "BRANCH=-" >> $GITHUB_ENV
-          elif [[ "${{ inputs.kernelsu_branch }}" == "Dev" && ( "${{ inputs.kernelsu_variant }}" == "SukiSU" ) ]]; then
-              echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
-          elif [[ "${{ inputs.kernelsu_branch }}" == "Other" && -n "${{ inputs.kernelsu_branch_other }}" ]]; then
-            echo "BRANCH=-s ${{ inputs.kernelsu_branch_other }}" >> $GITHUB_ENV
-          else
-            echo "Error: Custom branch not provided for 'Other'" >&2
-            exit 1
-          fi
       
       - name: 添加 SukiSU
         run: |
@@ -205,7 +192,7 @@ jobs:
           cd "$CONFIG"
           if [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
             echo "Adding KernelSU SukiSU..."
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash $BRANCH
+            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
           fi    
 
       - name: 应用 LTS 分支补丁
@@ -227,18 +214,8 @@ jobs:
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
-          if [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
-            echo "Applying SUSFS patches for SukiSU..."
-             cd ./KernelSU
-            
-            echo "Applying SukiSU specific SUSFS patch..."
-          else
-            echo "Invalid KernelSU variant selected!"
-            exit 1
-          fi
-
           # Change to common directory and apply common SUSFS patch
-          cd ../common
+          cd ./common
           patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
 
       - name: 应用内核补丁
@@ -271,15 +248,11 @@ jobs:
 
       - name: 写入 LZ4KD 配置
         run: |
-          echo "写入LZ4KD Config 依赖"
           CONFIG_FILE="$CONFIG/common/arch/arm64/configs/gki_defconfig"
 
-          # sed -i 's/CONFIG_MODULE_SIG=y/CONFIG_MODULE_SIG=n/g' "$CONFIG_FILE"
           if grep -q "CONFIG_ZSMALLOC" -- "$CONFIG_FILE"; then
-              echo "提示：文件 $CONFIG_FILE 包含字符串 CONFIG_ZSMALLOC。"
               sed -i 's/CONFIG_ZSMALLOC=m/CONFIG_ZSMALLOC=y/g' "$CONFIG_FILE"
           else
-              echo "警告：文件 $CONFIG_FILE 不包含字符串 CONFIG_ZSMALLOC。"
               echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
           fi
               
@@ -289,11 +262,7 @@ jobs:
           echo "CONFIG_MODULE_SIG_FORCE=n" >> "$CONFIG_FILE"
 
           if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
-            # echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
-            # echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
             echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
-            # echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
-            # echo "CONFIG_CRYPTO_LZ4K_OPLUS=y" >> "$CONFIG_FILE"
             echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
           fi
            
@@ -317,6 +286,7 @@ jobs:
           echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+
           # Add BBR Config
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig 
           echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -352,7 +322,7 @@ jobs:
           cd "$CONFIG"
           SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./common/Makefile)
           if [ ! -z ${{ inputs.version }} ]; then
-            echo "应生成目标内核版本号:${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
+            echo "目标内核版本号:${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
             echo "BOOTNAME=${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}" >> $GITHUB_ENV
             sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'-'"${{ inputs.version }}"'"|' ./common/scripts/setlocalversion
           else
@@ -396,18 +366,6 @@ jobs:
             echo "Building the kernel..."
             tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast --lto=thin //common:kernel_aarch64_dist || exit 1
             ccache --show-stats
-
-      # - name: 修补 Image 文件 (kpm)
-      #   if: ${{ inputs.android_version == 'android14' || inputs.android_version == 'android15' }}
-      #   run: |
-      #     echo "Patching Image file..."
-      #     cd "$CONFIG/bazel-bin/common/kernel_aarch64/"
-      #     curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm/patch_linux" -o patch
-      #     chmod 777 patch
-      #     ./patch
-      #     rm -rf Image
-      #     mv oImage Image
-      #     cd ../../..
           
       - name: 创建 Bootimgs 文件夹并复制镜像
         if: ${{ inputs.android_version == 'android14' || inputs.android_version == 'android15' }}
