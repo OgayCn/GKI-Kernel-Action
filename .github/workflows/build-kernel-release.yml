@@ -8,26 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       make_release:
-        description: '创建一个Release发布构建好的内核'
+        description: '构建完成后发布Release'
         required: true
         type: boolean
         default: true
-      kernelsu_variant:
-        description: "选择 KernelSU"
-        required: true
-        type: choice
-        options:
-          - SukiSU
-        default: SukiSU
-      kernelsu_branch:
-        description: "选择 KSU 分支"
-        required: true
-        type: choice
-        options:
-          - Dev
-        default: Dev
       version:
-        description: '自定义版本名(如位于6.1.140-android14-11-g<自动生成HASH>-<自定义版本名>/留空则使用默认版本号)'
+        description: '自定义版本名(如位于6.1.141-android14-11-g<自动生成HASH>-<自定义版本名>/留空则无)'
         required: false
         type: string
 jobs:
@@ -37,8 +23,6 @@ jobs:
     secrets: inherit
     with:
       make_release: ${{ inputs.make_release }}
-      kernelsu_variant: ${{ inputs.kernelsu_variant }}
-      kernelsu_branch: ${{ inputs.kernelsu_branch }}
       version: ${{ inputs.version }}
 
   trigger-release:
