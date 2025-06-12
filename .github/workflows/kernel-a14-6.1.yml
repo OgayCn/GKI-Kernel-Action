@@ -10,13 +10,6 @@ on:
         required: true
         type: boolean
         default: true
-      kernelsu_variant:
-        required: true
-        type: string
-      kernelsu_branch:
-        required: true
-        type: string
-        default: Stable
       version:
         required: false
         type: string
