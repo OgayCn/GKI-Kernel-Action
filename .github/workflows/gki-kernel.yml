@@ -186,7 +186,7 @@ jobs:
           cd "$CONFIG"
 
           echo "Adding KernelSU SukiSU..."
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.8
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
 
       - name: 安装 SUSFS
         run: |
