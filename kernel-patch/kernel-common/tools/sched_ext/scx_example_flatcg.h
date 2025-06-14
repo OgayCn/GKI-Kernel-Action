@@ -1,6 +1,0 @@
-#ifndef __SCX_EXAMPLE_FLATCG_H
-#define __SCX_EXAMPLE_FLATCG_H
-
-
-
-#endif /* __SCX_EXAMPLE_FLATCG_H */

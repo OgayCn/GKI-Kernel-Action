@@ -1,3 +1,0 @@
-config SCX_USE_UTIL_TRACK
-    bool
-    default y
