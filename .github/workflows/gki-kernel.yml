@@ -40,7 +40,7 @@ jobs:
       KBUILD_BUILD_HOST: "Github"
 
     steps:
-      - name: 初始化并配置构建空间
+      - name: 初始化构建空间
         uses: AdityaGarg8/remove-unwanted-software@v5
         with:
           remove-dotnet: 'true'
@@ -53,9 +53,6 @@ jobs:
           remove-cached-tools: 'false'
           verbose: 'false'
 
-      - name: 拉取仓库文件
-        uses: actions/checkout@v4
-
       - name: 安装并配置 ccache
         run: |
           sudo apt update && sudo apt upgrade -y && sudo apt install -y ccache python3 git curl
@@ -65,7 +62,7 @@ jobs:
           ccache --set-config=compression=true
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
       
-      - name: 从缓存中还原ccache
+      - name: 从缓存中还原 ccache
         uses: actions/cache@v4
         with:
           path: ~/.ccache
@@ -80,10 +77,12 @@ jobs:
           git clone $AOSP_MIRROR/kernel/prebuilts/build-tools -b $BRANCH --depth 1 kernel-build-tools
           git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1 mkbootimg
 
-      - name: 配置环境变量
+      - name: 配置工作环境
+        uses: actions/checkout@v4
         env:
           BOOT_SIGN_KEY: ${{ secrets.BOOT_SIGN_KEY }}
         run: |
+          # 配置环境变量
           CONFIG="${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}"
           echo "CONFIG=$CONFIG" >> $GITHUB_ENV
           echo "CONFIG set to: $CONFIG"
@@ -92,12 +91,10 @@ jobs:
           echo "MKBOOTIMG=$GITHUB_WORKSPACE/mkbootimg/mkbootimg.py" >> $GITHUB_ENV
           echo "UNPACK_BOOTIMG=$GITHUB_WORKSPACE/mkbootimg/unpack_bootimg.py" >> $GITHUB_ENV
           echo "BOOTHASH=$(date +%s%N | sha1sum | cut -c1-12)" >> $GITHUB_ENV
-          uname -n
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 > ./kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem
           echo "BOOT_SIGN_KEY_PATH=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem" >> $GITHUB_ENV
 
-      - name: 克隆外部依赖
-        run: |
+          # 克隆外部依赖
           mkdir -p ./git-repo
           curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
           chmod a+rx ./git-repo/repo
@@ -112,14 +109,11 @@ jobs:
           cp -r AnyKernel3 ../
           cd ..
 
-      - name: 拉取内核源代码
-        run: |
-          echo "Creating folder for configuration: $CONFIG..."
+          # 拉取内核源码
           mkdir -p "$CONFIG"
           cd "$CONFIG"
 
-          # Initialize and sync kernel source
-          echo "Initializing and syncing kernel source..."
+          echo "初始化和同步内核源码中..."
           FORMATTED_BRANCH="${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.os_patch_level }}"
           $REPO init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
 
@@ -136,7 +130,7 @@ jobs:
           $REPO --version
           $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
 
-      - name: 下载并配置 Clang 21
+      - name: 配置 Clang 21
         run: |
           curl -o clang-r563880.tar.gz https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r563880.tar.gz
           echo "Unzip clang-r563880.tar.gz..."
@@ -146,31 +140,25 @@ jobs:
           sudo rm -rf ./clang-r563880.tar.gz
 
           cd "$CONFIG"
-
           echo "删除内核源码中默认配置的 clang 并替换为 clang21 ..."
           sudo rm -rf ./prebuilts/clang/host/linux-x86/clang-r487747c
           sudo mv -f $GITHUB_WORKSPACE/clang-r563880 ./prebuilts/clang/host/linux-x86/
 
           sudo mkdir -p ./prebuilts/clang/host/linux-x86/clang-r487747c
           sudo cp -rf ./prebuilts/clang/host/linux-x86/clang-r563880/* ./prebuilts/clang/host/linux-x86/clang-r487747c
-
           echo "Clang 21 替换完成 ..."
 
           # 修改编译工具链中的 kleaf 配置
           sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/build-tools-config/* ./prebuilts/clang/host/linux-x86/kleaf
-          
           echo "编译工具链配置文件修改完成..."
       
-      - name: 添加 SukiSU & SUSFS
+      - name: 添加 SukiSU & 应用补丁
         run: |
-          echo "Changing to configuration directory: $CONFIG..."
+          echo "开始安装 SukiSU Ultra..."
           cd "$CONFIG"
-
-          echo "Adding KernelSU SukiSU..."
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.8
           
           echo "Applying SUSFS patches..."
-          
           # Copy SUSFS patches
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
@@ -179,38 +167,34 @@ jobs:
           # Change to common directory and apply common SUSFS patch
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
+          echo "SukiSU Ultra 及 SUSFS 安装完成..."
 
-      - name: 应用内核补丁
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/common"
-
+          # 应用 LTS 分支补丁
           sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
-          echo "Applying lts patches complete..."
+          echo "lts patches complete..."
 
           echo "Applying hooks for SukiSU..."
-
           cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
           patch -p1 -F 3 < syscall_hooks.patch
+          echo "syscall_hooks patches complete..."
 
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
           patch -p1 -F 3 < 69_hide_stuff.patch
+          echo "69_hide_stuff patches complete..."
 
           cp -r ../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
           cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
           cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
-          # cp -r ../../SukiSU_patch/other/zram/lz4k_oplus ./lib/
           
           cp ../../SukiSU_patch/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
+          echo "lz4kd patches complete..."
+          echo '已完成全部内核补丁...'
 
-          # cp ../../SukiSU_patch/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch ./
-          # patch -p1 -F 3 < lz4k_oplus.patch || true
-
-          echo '完成内核补丁'
-
-      - name: 写入内核配置
+      - name: 设置内核配置信息
         run: |
+          # 写入 ZRAM 配置
+          echo "Add zram configuration settings..."
           CONFIG_FILE="$CONFIG/common/arch/arm64/configs/gki_defconfig"
 
           if grep -q "CONFIG_ZSMALLOC" -- "$CONFIG_FILE"; then
@@ -218,7 +202,7 @@ jobs:
           else
               echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
           fi
-          
+
           sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
           sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' "$CONFIG/common/modules.bzl"
           echo "CONFIG_MODULE_SIG_FORCE=n" >> "$CONFIG_FILE"
@@ -229,21 +213,21 @@ jobs:
           fi
 
           cd "$CONFIG"
-
-          # Add KSU configuration settings
+          echo "Add KSU configuration settings..."
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-          # Add additional tmpfs config setting
+          echo "Add additional tmpfs config settings..."
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # Add additional config setting
+
+          echo "Add additional config settings..."
           echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-          # Add BBR Config
+          echo "Add BBR config settings..."
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig 
           echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_NET_SCH_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -252,7 +236,7 @@ jobs:
           echo "CONFIG_TCP_CONG_HTCP=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_DEFAULT_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-          # Add SUSFS configuration settings
+          echo "Add SUSFS configuration settings..."
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -269,13 +253,10 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
       
-          # Remove check_defconfig
+          echo "Remove check_defconfig..."
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
-      - name: 配置内核信息
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG"
+          echo "设置内核构建信息..."
           SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./common/Makefile)
           if [ ! -z ${{ inputs.version }} ]; then
             echo "目标内核版本号:${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
@@ -286,19 +267,20 @@ jobs:
             echo "BOOTNAME=${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH" >> $GITHUB_ENV
             sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'"|' ./common/scripts/setlocalversion
           fi
-
-          # Run perl command to modify build_time & build user@host
-          # perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT Sat Apr 20 04:20:00 UTC 2024"}' ./common/scripts/mkcompile_h
+          
           perl -pi -e 's/"\$\{LINUX_COMPILE_BY\}"/"\Q$ENV{KBUILD_BUILD_USER}\E"/g' ./common/scripts/mkcompile_h
           perl -pi -e 's/"\$\{LINUX_COMPILE_HOST\}"/"\Q$ENV{KBUILD_BUILD_HOST}\E"/g' ./common/scripts/mkcompile_h
+          echo "设置内核构建用户及主机:$KBUILD_BUILD_USER@$KBUILD_BUILD_HOST"
 
           TIMESTAMP_ESCAPED=$(echo "$TIMESTAMP" | sed 's|/|\\/|g; s| |\\ |g')
           sed -i "s|\$(build-timestamp)|${TIMESTAMP_ESCAPED}|g" ./common/init/Makefile
+          echo "设置内核构建时间:$TIMESTAMP"
 
           sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' ./common/BUILD.bazel
           rm -rf ./common/android/abi_gki_protected_exports_*
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
           sed -E -i '/^CONFIG_LOCALVERSION=/ s/(.*)"$/\1"/' ./common/arch/arm64/configs/gki_defconfig
+          echo "配置内核信息完成..."
 
       - name: 编译内核
         uses: nick-fields/retry@v3
@@ -310,30 +292,26 @@ jobs:
             set -e
             set -x
             cd "$CONFIG"
-            # 替换 BUILD_SYSTEM_DLKM=1 为 BUILD_SYSTEM_DLKM=0
             sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' common/build.config.gki.aarch64
-            # 删除 MODULES_ORDER=android/gki_aarch64_modules 行
             sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' common/build.config.gki.aarch64
             sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' common/build.config.gki.aarch64
-
-            echo "Building the kernel..."
+            echo "开始构建内核..."
             tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast --lto=thin //common:kernel_aarch64_dist || exit 1
             ccache --show-stats
           
-      - name: 制作 Ak3.zip 文件
+      - name: 打包编译产物
         run: |
-          echo "Creating zip files for all formats..."
+          echo "正在打包编译产物..."
           cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
           cd ./AnyKernel3
-
-          # Create and upload zip for each format
           ZIP_NAME="$BOOTNAME-Ak3.zip"
           echo "Creating zip file: $ZIP_NAME..."
           mv ../Image ./Image
           zip -r "../$ZIP_NAME" ./*
           rm ./Image
+          echo "Image打包完成..."
 
-      - name: 上传编译产出文件
+      - name: 上传产出文件
         uses: actions/upload-artifact@v4
         with:
           name: SukiSU-kernel-${{ env.CONFIG }}
