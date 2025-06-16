@@ -28,7 +28,7 @@ jobs:
   trigger-release:
     runs-on: ubuntu-latest
     needs:
-      - build-kernel-a14-6-1
+      - build-kernel
     env:
       REPO_NAME: 6.1-LTS-GKI-Kernel-Action
       GH_TOKEN: ${{ github.token }}
