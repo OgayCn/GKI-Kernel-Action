@@ -8,12 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       make_release:
-        description: '构建完成后发布Release'
+        description: '构建完成后发布 Release'
         required: true
         type: boolean
         default: true
       version:
-        description: '自定义版本名(如位于6.1.141-android14-11-g<自动生成HASH>-<自定义版本名>/留空则无)'
+        description: '自定义后缀(6.1.141-android14-11-g<自动HASH>-<后缀>/留空则无-后缀)'
         required: false
         type: string
 jobs:
