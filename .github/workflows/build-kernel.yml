@@ -1,4 +1,4 @@
-name: 6.1.X-LTS-Kernel-Build
+name: Build-Kernel-6.1-LTS
 permissions:
   contents: write
   actions: write
@@ -10,18 +10,6 @@ on:
         required: true
         type: boolean
         default: true
-      android_version:
-        required: true
-        type: string
-      kernel_version:
-        required: true
-        type: string
-      sub_level:
-        required: true
-        type: string
-      os_patch_level:
-        required: true
-        type: string
       revision:
         required: false
         type: string
@@ -30,7 +18,7 @@ on:
         type: string
 
 jobs:
-  build-kernel-kernelsu-susfs:
+  build-kernel-sukisu-susfs:
     runs-on: ubuntu-latest
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
@@ -66,9 +54,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}-ccache-${{ github.sha }}
+          key: android14-6.1-LTS-ccache-${{ github.sha }}
           restore-keys: |
-            ${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}-ccache-
+            android14-6.1-LTS-ccache-
       
       - name: 同步仓库资源
         uses: actions/checkout@v4
@@ -84,7 +72,7 @@ jobs:
           git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1 mkbootimg
 
           echo "配置环境变量..."
-          CONFIG="${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.sub_level }}"
+          CONFIG="android14-6.1-LTS"
           echo "CONFIG=$CONFIG" >> $GITHUB_ENV
           echo "CONFIG set to: $CONFIG"
           echo "TIMESTAMP=$(date -u '+%a %b %e %T %Z %Y')" >> $GITHUB_ENV
@@ -100,7 +88,7 @@ jobs:
           curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
           chmod a+rx ./git-repo/repo
           echo "REPO=$GITHUB_WORKSPACE/./git-repo/repo" >> $GITHUB_ENV
-          SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          SUSFS_BRANCH="gki-android14-6.1"
           # Debug print the branches
           echo "Using branch for SUSFS: $SUSFS_BRANCH"
           # Clone repositories using the branch names
@@ -113,7 +101,7 @@ jobs:
           echo "初始化和同步内核源码中..."
           mkdir -p "$CONFIG"
           cd "$CONFIG"
-          FORMATTED_BRANCH="${{ inputs.android_version }}-${{ inputs.kernel_version }}-${{ inputs.os_patch_level }}"
+          FORMATTED_BRANCH="android14-6.1-lts"
           $REPO init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
 
           REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${FORMATTED_BRANCH})
@@ -159,13 +147,13 @@ jobs:
           
           echo "Applying SUSFS patches..."
           # Copy SUSFS patches
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
           # Change to common directory and apply common SUSFS patch
           cd ./common
-          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
+          patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
           echo "SukiSU Ultra 及 SUSFS 安装完成..."
 
           # 应用 LTS 分支补丁
@@ -185,7 +173,7 @@ jobs:
           cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
           cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
           
-          cp ../../SukiSU_patch/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4kd.patch ./
+          cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
           echo "lz4kd patches complete..."
           echo '已完成全部内核补丁...'
@@ -258,12 +246,12 @@ jobs:
           echo "设置内核构建信息..."
           SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./common/Makefile)
           if [ ! -z ${{ inputs.version }} ]; then
-            echo "目标内核版本号:${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
-            echo "BOOTNAME=${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}" >> $GITHUB_ENV
+            echo "目标内核版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
+            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}" >> $GITHUB_ENV
             sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'-'"${{ inputs.version }}"'"|' ./common/scripts/setlocalversion
           else
-            echo "未配置内核版本号,将使用默认版本号:${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH"
-            echo "BOOTNAME=${{ inputs.kernel_version }}.$SUBLEVEL-android14-11-g$BOOTHASH" >> $GITHUB_ENV
+            echo "未配置内核版本号,将使用默认版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH"
+            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH" >> $GITHUB_ENV
             sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'"|' ./common/scripts/setlocalversion
           fi
           

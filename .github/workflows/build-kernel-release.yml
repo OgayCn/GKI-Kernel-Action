@@ -18,8 +18,8 @@ on:
         type: string
 jobs:
 
-  build-kernel-a14-6-1:
-    uses: ./.github/workflows/kernel-a14-6.1.yml
+  build-kernel:
+    uses: ./.github/workflows/build-kernel.yml
     secrets: inherit
     with:
       make_release: ${{ inputs.make_release }}
