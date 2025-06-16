@@ -96,9 +96,9 @@ jobs:
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
           cd SukiSU_patch
           cp -r AnyKernel3 ../
-          cd ..
 
           echo "初始化和同步内核源码中..."
+          cd -
           mkdir -p "$CONFIG"
           cd "$CONFIG"
           FORMATTED_BRANCH="android14-6.1-lts"
