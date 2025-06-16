@@ -53,7 +53,7 @@ jobs:
       - name: 同步仓库资源
         uses: actions/checkout@v4
 
-      - name: 配置工作环境
+      - name: 配置环境变量与资源
         env:
           BOOT_SIGN_KEY: ${{ secrets.BOOT_SIGN_KEY }}
         run: |
