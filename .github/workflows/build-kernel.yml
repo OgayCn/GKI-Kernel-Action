@@ -50,14 +50,6 @@ jobs:
           ccache --set-config=compression=true
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
       
-      - name: 从缓存中还原 ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: android14-6.1-LTS-ccache-${{ github.sha }}
-          restore-keys: |
-            android14-6.1-LTS-ccache-
-      
       - name: 同步仓库资源
         uses: actions/checkout@v4
 
@@ -84,27 +76,24 @@ jobs:
           echo "BOOT_SIGN_KEY_PATH=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem" >> $GITHUB_ENV
 
           echo "克隆外部依赖..."
-          mkdir -p ./git-repo
-          curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
-          chmod a+rx ./git-repo/repo
-          echo "REPO=$GITHUB_WORKSPACE/./git-repo/repo" >> $GITHUB_ENV
-          SUSFS_BRANCH="gki-android14-6.1"
+
           # Debug print the branches
-          echo "Using branch for SUSFS: $SUSFS_BRANCH"
           # Clone repositories using the branch names
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
           cd SukiSU_patch
           cp -r AnyKernel3 ../
           cd ..
 
-      - name: 拉取内核源码
-        run: |
+          mkdir -p ./git-repo
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
+          chmod a+rx ./git-repo/repo
+
           echo "初始化和同步内核源码中..."
           mkdir -p "$CONFIG"
           cd "$CONFIG"
           FORMATTED_BRANCH="android14-6.1-lts"
-          $REPO init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
+          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
 
           REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${FORMATTED_BRANCH})
           DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
@@ -116,8 +105,8 @@ jobs:
           fi
 
           # Sync repo and apply patches
-          $REPO --version
-          $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
+          $GITHUB_WORKSPACE/./git-repo/repo --version
+          $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
 
       - name: 配置 Clang 21
         run: |
@@ -178,11 +167,9 @@ jobs:
           cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
           echo "lz4kd patches complete..."
-          echo '已完成全部内核补丁...'
 
       - name: 设置内核配置信息
         run: |
-          # 写入 ZRAM 配置
           echo "Add zram configuration settings..."
           CONFIG_FILE="$CONFIG/common/arch/arm64/configs/gki_defconfig"
 
@@ -245,7 +232,6 @@ jobs:
           echo "Remove check_defconfig..."
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
-          echo "设置内核构建信息..."
           SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./common/Makefile)
           if [ ! -z ${{ inputs.version }} ]; then
             echo "目标内核版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
@@ -269,7 +255,6 @@ jobs:
           rm -rf ./common/android/abi_gki_protected_exports_*
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
           sed -E -i '/^CONFIG_LOCALVERSION=/ s/(.*)"$/\1"/' ./common/arch/arm64/configs/gki_defconfig
-          echo "配置内核信息完成..."
 
       - name: 编译内核
         uses: nick-fields/retry@v3
@@ -298,7 +283,6 @@ jobs:
           mv ../Image ./Image
           zip -r "../$ZIP_NAME" ./*
           rm ./Image
-          echo "Image打包完成..."
 
       - name: 上传产出文件
         uses: actions/upload-artifact@v4
