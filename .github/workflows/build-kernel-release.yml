@@ -26,7 +26,7 @@ jobs:
     env:
       REPO_NAME: 6.1-LTS-GKI-Kernel-Action
       GH_TOKEN: ${{ github.token }}
-      RELEASE_NAME: "GKI-6.1-LTS"
+      RELEASE_NAME: "GKI-6.1-LTS-SukiSU Ultra"
       RELEASE_BODY:
     steps:
       - name: 检查代码
@@ -111,6 +111,17 @@ jobs:
           -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
           -> SUSFS(GKI-6.1):[${{ env.COMMIT_HASH_gki_android14_6_1 }}](${{ env.COMMIT_URL_gki_android14_6_1 }})
           EOF
+
+      - name: 设定 KSU 环境变量
+        run: |
+          echo "This is the SukiSU variant"
+          git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git
+          cd SukiSU-Ultra
+          KSU_GIT_VERSION=$(git rev-list --count HEAD)
+          KSU_VERSION=$((10000 + KSU_GIT_VERSION + 606))
+          echo $KSU_VERSION
+          echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+          echo "RELEASE_NAME=${{ env.RELEASE_NAME }} ($KSU_VERSION)" >> $GITHUB_ENV
 
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
