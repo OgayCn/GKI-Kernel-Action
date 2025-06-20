@@ -53,12 +53,13 @@ jobs:
         env:
           BOOT_SIGN_KEY: ${{ secrets.BOOT_SIGN_KEY }}
         run: |
+          CHASH=$(date +%s%N | sha1sum | cut -c1-12)
+          echo "本次构建哈希:$CHASH"
           echo "下载工具链..."
           AOSP_MIRROR=https://android.googlesource.com
           BRANCH=main-kernel
           git clone $AOSP_MIRROR/kernel/prebuilts/build-tools -b $BRANCH --depth 1 kernel-build-tools
           git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1 mkbootimg
-
           echo "配置环境变量..."
           CONFIG="android14-6.1-LTS"
           echo "CONFIG=$CONFIG" >> $GITHUB_ENV
@@ -67,7 +68,7 @@ jobs:
           echo "AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool" >> $GITHUB_ENV
           echo "MKBOOTIMG=$GITHUB_WORKSPACE/mkbootimg/mkbootimg.py" >> $GITHUB_ENV
           echo "UNPACK_BOOTIMG=$GITHUB_WORKSPACE/mkbootimg/unpack_bootimg.py" >> $GITHUB_ENV
-          echo "BOOTHASH=$(date +%s%N | sha1sum | cut -c1-12)" >> $GITHUB_ENV
+          echo "BOOTHASH=$CHASH" >> $GITHUB_ENV
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 > ./kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem
           echo "BOOT_SIGN_KEY_PATH=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/share/avb/testkey_rsa2048.pem" >> $GITHUB_ENV
 
