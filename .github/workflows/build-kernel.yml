@@ -6,10 +6,6 @@ permissions:
 on:
   workflow_call:
     inputs:
-      make_release:
-        required: true
-        type: boolean
-        default: true
       revision:
         required: false
         type: string
@@ -92,16 +88,14 @@ jobs:
           echo "初始化和同步内核源码中..."
           mkdir -p "$CONFIG"
           cd "$CONFIG"
-          FORMATTED_BRANCH="android14-6.1-lts"
-          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-${FORMATTED_BRANCH} --repo-rev=v2.16
+          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
 
-          REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common ${FORMATTED_BRANCH})
-          DEFAULT_MANIFEST_PATH=.repo/manifests/default.xml
+          REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common android14-6.1-lts)
 
           # Check if branch is deprecated
           if grep -q deprecated <<< $REMOTE_BRANCH; then
-            echo "Found deprecated branch: $FORMATTED_BRANCH"
-            sed -i "s/\"${FORMATTED_BRANCH}\"/\"deprecated\/${FORMATTED_BRANCH}\"/g" $DEFAULT_MANIFEST_PATH
+            echo "Found deprecated branch: android14-6.1-lts"
+            sed -i "s/\"android14-6.1-lts\"/\"deprecated\/android14-6.1-lts\"/g" .repo/manifests/default.xml
           fi
 
           # Sync repo and apply patches
@@ -278,7 +272,7 @@ jobs:
           echo "正在打包编译产物..."
           cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
           cd ./AnyKernel3
-          ZIP_NAME="$BOOTNAME-Ak3.zip"
+          ZIP_NAME="$BOOTNAME.zip"
           echo "Creating zip file: $ZIP_NAME..."
           mv ../Image ./Image
           zip -r "../$ZIP_NAME" ./*

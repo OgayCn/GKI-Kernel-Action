@@ -7,11 +7,6 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      make_release:
-        description: '构建完成后发布 Release'
-        required: true
-        type: boolean
-        default: true
       version:
         description: '自定义后缀(6.1.141-android14-11-g<自动HASH>-<后缀>/留空则无-后缀)'
         required: false
@@ -22,7 +17,6 @@ jobs:
     uses: ./.github/workflows/build-kernel.yml
     secrets: inherit
     with:
-      make_release: ${{ inputs.make_release }}
       version: ${{ inputs.version }}
 
   trigger-release:
@@ -61,8 +55,6 @@ jobs:
             fi
           done
 
-      - name: 获取提交哈希值或标签并生成 URL 于 KernelSU-${{ inputs.kernelsu_variant }}
-        run: |
           BRANCH="${{ inputs.kernelsu_branch }}"
       
           get_ref() {
@@ -82,7 +74,7 @@ jobs:
       
           get_ref "SukiSU Ultra" "https://github.com/ShirkNeko/SukiSU-Ultra.git" "ShirkNeko/SukiSU-Ultra" "$MODE"
 
-      - name: 生成和创建新标签
+      - name: 创建新标签
         run: |
             LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name')
             if [ -z "$LATEST_TAG" ]; then
