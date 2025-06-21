@@ -77,6 +77,8 @@ jobs:
           echo "初始化和同步内核源码中..."
           mkdir -p "$CONFIG"
           cd "$CONFIG"
+          git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-gnu-6.4.1.git gcc
+
           $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
 
           REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common android14-6.1-lts)
