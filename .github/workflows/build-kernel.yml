@@ -17,6 +17,9 @@ jobs:
   build-kernel-sukisu-susfs:
     runs-on: ubuntu-latest
     env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
       KBUILD_BUILD_USER: "DawnFz"
       KBUILD_BUILD_HOST: "Github"
 
@@ -33,6 +36,15 @@ jobs:
           remove-swapfile: 'true'
           remove-cached-tools: 'false'
           verbose: 'false'
+
+      - name: 安装并配置 ccache
+        run: |
+          sudo apt update && sudo apt upgrade -y && sudo apt install -y ccache python3 git curl
+          mkdir -p ~/.cache/bazel
+          ccache --version
+          ccache --max-size=2G
+          ccache --set-config=compression=true
+          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
       
       - name: 同步仓库资源
         uses: actions/checkout@v4
@@ -77,8 +89,6 @@ jobs:
           echo "初始化和同步内核源码中..."
           mkdir -p "$CONFIG"
           cd "$CONFIG"
-          git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-gnu-6.4.1.git gcc
-
           $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u https://android.googlesource.com/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
 
           REMOTE_BRANCH=$(git ls-remote https://android.googlesource.com/kernel/common android14-6.1-lts)
@@ -103,9 +113,17 @@ jobs:
           sudo rm -rf ./clang-r563880.tar.gz
 
           cd "$CONFIG"
-          echo "复制 clang21 到工具链目录..."
+          echo "删除内核源码中默认配置的 clang 并替换为 clang21 ..."
+          sudo rm -rf ./prebuilts/clang/host/linux-x86/clang-r487747c
           sudo mv -f $GITHUB_WORKSPACE/clang-r563880 ./prebuilts/clang/host/linux-x86/
-          echo "编译工具链配置文件完成..."
+
+          sudo mkdir -p ./prebuilts/clang/host/linux-x86/clang-r487747c
+          sudo cp -rf ./prebuilts/clang/host/linux-x86/clang-r563880/* ./prebuilts/clang/host/linux-x86/clang-r487747c
+          echo "Clang 21 替换完成 ..."
+
+          # 修改编译工具链中的 kleaf 配置
+          sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/build-tools-config/* ./prebuilts/clang/host/linux-x86/kleaf
+          echo "编译工具链配置文件修改完成..."
       
       - name: 添加 SukiSU & 应用补丁
         run: |
@@ -247,32 +265,8 @@ jobs:
             sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' common/build.config.gki.aarch64
             sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' common/build.config.gki.aarch64
             echo "开始构建内核..."
-            cd common
-            export PATH="$GITHUB_WORKSPACE/$CONFIG/prebuilts/clang/host/linux-x86/clang-r563880/bin:$PATH"
-            export PATH="$GITHUB_WORKSPACE/$CONFIG/gcc/bin:$PATH"
-            export PATH="$GITHUB_WORKSPACE/$CONFIG/prebuilts/kernel-build-tools/linux-x86/bin:$PATH"
-            echo "--- Clang Version ---"
-            clang --version
-            echo "--- GCC Version ---"
-            aarch64-linux-gnu-gcc -v
-            COMMON_MAKE_PARAMS=(
-              -j$(nproc --all)
-              O=out
-              ARCH=arm64
-              LLVM=1
-              CROSS_COMPILE=aarch64-linux-gnu-
-            )
-            BUILD_TARGETS=(
-              Image
-              modules
-            )
-            
-            echo "--- Running make gki_defconfig ---"
-            make "${COMMON_MAKE_PARAMS[@]}" gki_defconfig || { echo "make defconfig failed"; exit 1; }
-            make "${COMMON_MAKE_PARAMS[@]}" "${BUILD_TARGETS[@]}" || { echo "make failed"; exit 1; }
-
-            mkdir -p ../bazel-bin/common/kernel_aarch64/
-            cp ./out/arch/arm64/boot/Image* ../bazel-bin/common/kernel_aarch64/
+            tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast --lto=thin //common:kernel_aarch64_dist || exit 1
+            ccache --show-stats
           
       - name: 打包编译产物
         run: |
